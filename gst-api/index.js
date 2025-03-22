@@ -6,11 +6,7 @@ const app = express();
 app.use(express.json());
 
 app.post('/transactions', async (req, res) => {
-  const { sourceState, sourceCountry, destinationState, destinationCountry, productCategory } = req.body;
-
-  if (productCategory !== 'clothing') {
-    return res.status(400).json({ error: 'Currently, only clothing products are supported.' });
-  }
+  const { sourceState, sourceCountry, destinationState, destinationCountry } = req.body;
 
   let gstType;
   let gstAmount = 0;
@@ -20,15 +16,30 @@ app.post('/transactions', async (req, res) => {
     gstType = 'CGST_SGST';
     gstAmount = calculateCgstSgst();
   } else if (sourceCountry === 'India' && destinationCountry === 'India' && sourceState === 'Gujarat' && destinationState === 'Maharashtra') {
-    gstType = 'IGST';
-    gstAmount = calculateIgst();
-  } else if (sourceCountry === 'India' && destinationCountry === 'USA' && sourceState === 'Gujarat' && destinationState === 'California') {
+    gstType = 'CGST_SGST';
+    gstAmount = calculateCgstSgst();
+  } else if (sourceCountry === 'India' && destinationCountry === 'India' && sourceState === 'Maharashtra' && destinationState === 'Maharashtra') {
+    gstType = 'CGST_SGST';
+    gstAmount = calculateCgstSgst();
+  } else if (sourceCountry === 'India' && destinationCountry === 'India' && sourceState === 'Maharashtra' && destinationState === 'Gujarat') {
+    gstType = 'CGST_SGST';
+    gstAmount = calculateCgstSgst();
+  } 
+  else if (sourceCountry === 'India' && destinationCountry === 'USA' && sourceState === 'Gujarat' && destinationState === 'California') {
     gstType = 'IGST_IMPORT_EXPORT';
     gstAmount = calculateIgstOnImportsExports();
-  } else if (sourceCountry === 'USA' && destinationCountry === 'India' && sourceState === 'California' && destinationState === 'Gujarat') {
+  }else if (sourceCountry === 'India' && destinationCountry === 'USA' && sourceState === 'Maharashtra' && destinationState === 'California') {
+    gstType = 'IGST_IMPORT_EXPORT';
+    gstAmount = calculateIgstOnImportsExports();
+  } 
+  else if (sourceCountry === 'USA' && destinationCountry === 'India' && sourceState === 'California' && destinationState === 'Gujarat') {
     gstType = 'IGST_IMPORT';
     gstAmount = calculateIgstOnImports(); // Implement this function for importing goods into India
-  } else {
+  } else if (sourceCountry === 'USA' && destinationCountry === 'India' && sourceState === 'California' && destinationState === 'Maharashtra') {
+    gstType = 'IGST_IMPORT';
+    gstAmount = calculateIgstOnImports(); // Implement this function for importing goods into India
+  }
+  else {
     return res.status(400).json({ error: 'Invalid transaction details' });
   }
 
@@ -40,8 +51,7 @@ app.post('/transactions', async (req, res) => {
       destinationState,
       destinationCountry,
       gstType,
-      gstAmount,
-      productCategory,
+      gstAmount
     },
   });
 

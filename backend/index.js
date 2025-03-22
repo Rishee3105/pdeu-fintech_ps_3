@@ -4,6 +4,10 @@ const { PrismaClient } = require('@prisma/client');
 const multer = require('multer');
 const xlsx = require('xlsx');
 const path = require('path');
+const axios = require('axios');
+const Decimal = require('decimal.js');
+const cors = require('cors');
+
 
 // Create a new Prisma Client instance
 const prisma = new PrismaClient();
@@ -13,7 +17,7 @@ const app = express();
 
 // Middleware to parse JSON requests
 app.use(express.json());
-
+app.use(cors());
 // Configure Multer for file uploads
 const upload = multer({
   dest: path.join(__dirname, 'uploads/')
@@ -173,6 +177,80 @@ app.get('/companies', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+
+app.get('/validate-transactions/:companyId', async (req, res) => {
+  const { companyId } = req.params;
+
+  try {
+    const company = await prisma.company.findUnique({
+      where: { id: parseInt(companyId) },
+      include: { transactions: true },
+    });
+
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+
+    const pendingTransactions = company.transactions.filter(
+      (transaction) => transaction.status === 'Pending'
+    );
+
+    const updatedTransactions = await Promise.all(
+      pendingTransactions.map(async (transaction) => {
+        const {
+          sourceState,
+          sourceCountry,
+          destState,
+          destCountry,
+          // Removed productCategory as requested
+        } = transaction;
+
+        // Prepare the request payload for GST API
+        const requestData = {
+          sourceState,
+          sourceCountry,
+          destinationState: destState,
+          destinationCountry: destCountry,
+        };
+
+        console.log('Sending request to GST API:', requestData); // Log the request data
+
+        try {
+          const response = await axios.post('http://localhost:4000/transactions', requestData);
+
+          const gstInfo = response.data;
+          const gstAmount = new Decimal(gstInfo.gstAmount);
+          const actualCost = new Decimal(transaction.actualCost);
+
+          const expectedCostWithTax = actualCost.plus(actualCost.times(gstAmount.dividedBy(100)));
+          let newStatus = 'Accepted';
+
+          if (expectedCostWithTax.greaterThan(transaction.costWithTax)) {
+            newStatus = 'Rejected';
+          }
+
+          await prisma.transaction.update({
+            where: { id: transaction.id },
+            data: { status: newStatus },
+          });
+
+          return { ...transaction, status: newStatus };
+        } catch (error) {
+          console.error('Error with GST API:', error.message);
+          return { ...transaction, status: 'Rejected', error: 'Error with GST API.' };
+        }
+      })
+    );
+
+    res.json({ ...company, transactions: updatedTransactions });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'An error occurred while validating transactions' });
+  }
+});
+
+
 
 // Start the server on a specified port
 const PORT = process.env.PORT || 3000;

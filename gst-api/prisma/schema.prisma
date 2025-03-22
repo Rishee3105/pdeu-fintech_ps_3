@@ -21,7 +21,7 @@ model Transaction {
   destinationCountry String
   gstType           String
   gstAmount         Float
-  productCategory   String
+  productCategory   String?
   createdAt         DateTime @default(now()) // Automatically record when a transaction is created
   updatedAt         DateTime @updatedAt      // Automatically update when a transaction is modified
 }
