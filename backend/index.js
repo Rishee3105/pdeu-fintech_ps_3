@@ -231,111 +231,235 @@ app.get("/companies", async (req, res) => {
   }
 });
 
-app.post("/companies/:companyId/transactions/validate-date-range", async (req, res) => {
-  const { companyId } = req.params;
-  const { startDate, endDate } = req.body;
+// app.post("/companies/:companyId/transactions/validate-date-range", async (req, res) => {
+//   const { companyId } = req.params;
+//   const { startDate, endDate } = req.body;
 
-  // Validate input
-  if (!startDate || !endDate) {
-    return res.status(400).json({ error: "Both startDate and endDate are required" });
-  }
+//   // Validate input
+//   if (!startDate || !endDate) {
+//     return res.status(400).json({ error: "Both startDate and endDate are required" });
+//   }
 
-  try {
-    // Parse the dates
-    const parsedStartDate = new Date(startDate);
-    const parsedEndDate = new Date(endDate);
+//   try {
+//     // Parse the dates
+//     const parsedStartDate = new Date(startDate);
+//     const parsedEndDate = new Date(endDate);
 
-    if (isNaN(parsedStartDate.getTime()) || isNaN(parsedEndDate.getTime())) {
-      return res.status(400).json({ error: "Invalid date format" });
+//     if (isNaN(parsedStartDate.getTime()) || isNaN(parsedEndDate.getTime())) {
+//       return res.status(400).json({ error: "Invalid date format" });
+//     }
+
+//     // Fetch the company details including transactions
+//     const company = await prisma.company.findUnique({
+//       where: { id: parseInt(companyId) },
+//       include: {
+//         transactions: {
+//           where: {
+//             transactionDate: {
+//               gte: parsedStartDate,
+//               lte: parsedEndDate,
+//             },
+//           },
+//         },
+//       },
+//     });
+
+//     if (!company) {
+//       return res.status(404).json({ error: "Company not found" });
+//     }
+
+//     // Filter and validate pending transactions within the specified date range
+//     const pendingTransactions = company.transactions.filter(
+//       (transaction) => transaction.status === "Pending"
+//     );
+
+//     const updatedTransactions = await Promise.all(
+//       pendingTransactions.map(async (transaction) => {
+//         const {
+//           sourceState,
+//           sourceCountry,
+//           destState,
+//           destCountry,
+//           // Removed productCategory as requested
+//         } = transaction;
+
+//         // Prepare the request payload for GST API
+//         const requestData = {
+//           sourceState,
+//           sourceCountry,
+//           destinationState: destState,
+//           destinationCountry: destCountry,
+//         };
+
+//         console.log("Sending request to GST API:", requestData); // Log the request data
+
+//         try {
+//           const response = await axios.post(
+//             "http://localhost:4000/transactions",
+//             requestData
+//           );
+
+//           const gstInfo = response.data;
+//           const gstAmount = new Decimal(gstInfo.gstAmount);
+//           const actualCost = new Decimal(transaction.actualCost);
+
+//           const expectedCostWithTax = actualCost.plus(
+//             actualCost.times(gstAmount.dividedBy(100))
+//           );
+//           let newStatus = "Accepted";
+
+//           if (expectedCostWithTax.greaterThan(transaction.costWithTax)) {
+//             newStatus = "Rejected";
+//           }
+
+//           await prisma.transaction.update({
+//             where: { id: transaction.id },
+//             data: { status: newStatus },
+//           });
+
+//           return { ...transaction, status: newStatus };
+//         } catch (error) {
+//           console.error("Error with GST API:", error.message);
+//           return {
+//             ...transaction,
+//             status: "Rejected",
+//             error: "Error with GST API.",
+//           };
+//         }
+//       })
+//     );
+
+//     // Respond with the company information and updated transactions
+//     res.json({ ...company, transactions: updatedTransactions });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ error: "An error occurred while validating transactions" });
+//   }
+// });
+
+app.post(
+  "/companies/:companyId/transactions/validate-date-range",
+  async (req, res) => {
+    const { companyId } = req.params;
+    const { startDate, endDate } = req.body;
+
+    // Validate input
+    if (!startDate || !endDate) {
+      return res
+        .status(400)
+        .json({ error: "Both startDate and endDate are required" });
     }
 
-    // Fetch the company details including transactions
-    const company = await prisma.company.findUnique({
-      where: { id: parseInt(companyId) },
-      include: {
-        transactions: {
-          where: {
-            transactionDate: {
-              gte: parsedStartDate,
-              lte: parsedEndDate,
+    try {
+      // Parse the dates
+      const parsedStartDate = new Date(startDate);
+      const parsedEndDate = new Date(endDate);
+
+      if (isNaN(parsedStartDate.getTime()) || isNaN(parsedEndDate.getTime())) {
+        return res.status(400).json({ error: "Invalid date format" });
+      }
+
+      // Fetch the company details including transactions
+      const company = await prisma.company.findUnique({
+        where: { id: parseInt(companyId) },
+        include: {
+          transactions: {
+            where: {
+              transactionDate: {
+                gte: parsedStartDate,
+                lte: parsedEndDate,
+              },
             },
           },
         },
-      },
-    });
+      });
 
-    if (!company) {
-      return res.status(404).json({ error: "Company not found" });
-    }
+      if (!company) {
+        return res.status(404).json({ error: "Company not found" });
+      }
 
-    // Filter and validate pending transactions within the specified date range
-    const pendingTransactions = company.transactions.filter(
-      (transaction) => transaction.status === "Pending"
-    );
+      // Initialize counters and totals
+      let acceptedCount = 0;
+      let rejectedCount = 0;
+      const rejectedTransactions = [];
 
-    const updatedTransactions = await Promise.all(
-      pendingTransactions.map(async (transaction) => {
-        const {
-          sourceState,
-          sourceCountry,
-          destState,
-          destCountry,
-          // Removed productCategory as requested
-        } = transaction;
+      const updatedTransactions = await Promise.all(
+        company.transactions.map(async (transaction) => {
+          const {
+            sourceState,
+            sourceCountry,
+            destState,
+            destCountry,
+            actualCost,
+            costWithTax,
+            id,
+          } = transaction;
 
-        // Prepare the request payload for GST API
-        const requestData = {
-          sourceState,
-          sourceCountry,
-          destinationState: destState,
-          destinationCountry: destCountry,
-        };
-
-        console.log("Sending request to GST API:", requestData); // Log the request data
-
-        try {
-          const response = await axios.post(
-            "http://localhost:4000/transactions",
-            requestData
-          );
-
-          const gstInfo = response.data;
-          const gstAmount = new Decimal(gstInfo.gstAmount);
-          const actualCost = new Decimal(transaction.actualCost);
-
-          const expectedCostWithTax = actualCost.plus(
-            actualCost.times(gstAmount.dividedBy(100))
-          );
-          let newStatus = "Accepted";
-
-          if (expectedCostWithTax.greaterThan(transaction.costWithTax)) {
-            newStatus = "Rejected";
-          }
-
-          await prisma.transaction.update({
-            where: { id: transaction.id },
-            data: { status: newStatus },
-          });
-
-          return { ...transaction, status: newStatus };
-        } catch (error) {
-          console.error("Error with GST API:", error.message);
-          return {
-            ...transaction,
-            status: "Rejected",
-            error: "Error with GST API.",
+          // Prepare the request payload for GST API
+          const requestData = {
+            sourceState,
+            sourceCountry,
+            destinationState: destState,
+            destinationCountry: destCountry,
           };
-        }
-      })
-    );
 
-    // Respond with the company information and updated transactions
-    res.json({ ...company, transactions: updatedTransactions });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "An error occurred while validating transactions" });
+          try {
+            const response = await axios.post(
+              "http://localhost:4000/transactions",
+              requestData
+            );
+
+            const gstInfo = response.data;
+            const gstAmount = parseFloat(gstInfo.gstAmount); // Amount in Rupees
+            const actualCostDecimal = parseFloat(actualCost);
+
+            const expectedCostWithTax =
+              actualCostDecimal + (actualCostDecimal * gstAmount) / 100;
+            let newStatus = "Accepted";
+
+            if (expectedCostWithTax > costWithTax) {
+              newStatus = "Rejected";
+              rejectedCount++;
+              rejectedTransactions.push(transaction);
+            } else {
+              acceptedCount++;
+            }
+
+            await prisma.transaction.update({
+              where: { id },
+              data: { status: newStatus },
+            });
+
+            return { ...transaction, status: newStatus, taxApplied: gstAmount }; // Include tax applied
+          } catch (error) {
+            console.error("Error with GST API:", error.message);
+            rejectedCount++;
+            rejectedTransactions.push(transaction);
+            return {
+              ...transaction,
+              status: "Rejected",
+              error: "Error with GST API.",
+            };
+          }
+        })
+      );
+
+      // Respond with the company information and updated transactions
+      res.json({
+        company,
+        transactions: updatedTransactions,
+        acceptedCount,
+        rejectedCount,
+        rejectedTransactions,
+      });
+    } catch (error) {
+      console.error(error);
+      res
+        .status(500)
+        .json({ error: "An error occurred while validating transactions" });
+    }
   }
-});
+);
 
 // Start the server on a specified port
 const PORT = process.env.PORT || 3000;
