@@ -6,6 +6,7 @@ import CompanyPage from "./Pages/CompanyFormPage";
 import ExcelFileUpload from "./Pages/ExcelFileUpload";
 import TransactionPage from "./Pages/TransactionPage";
 import Navbar from "./Components/Navbar";
+import ValidationReport from "./Pages/ValidationReport";
 
 const App = () => {
   return (
@@ -24,6 +25,7 @@ const App = () => {
           element={<ExcelFileUpload />}
         />
         <Route path="/manualTransactionForm" element={<TransactionPage />} />
+        <Route path="/validation-report/:id" element={<ValidationReport />} />
       </Routes>
     </BrowserRouter>
   );
