@@ -14,14 +14,14 @@ datasource db {
 }
 
 model Transaction {
-  id                Int     @id @default(autoincrement())
-  sourceState       String
-  sourceCountry     String
-  destinationState  String
+  id                 Int      @id @default(autoincrement())
+  sourceState        String
+  sourceCountry      String
+  destinationState   String
   destinationCountry String
-  gstType           String
-  gstAmount         Float
-  productCategory   String?
-  createdAt         DateTime @default(now()) // Automatically record when a transaction is created
-  updatedAt         DateTime @updatedAt      // Automatically update when a transaction is modified
+  gstType            String
+  gstAmount          Float
+  productCategory    String?
+  createdAt          DateTime @default(now()) // Automatically record when a transaction is created
+  updatedAt          DateTime @updatedAt // Automatically update when a transaction is modified
 }

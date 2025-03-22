@@ -24,6 +24,7 @@ CREATE TABLE "transactions" (
     "dest_state" TEXT NOT NULL,
     "actual_cost" DECIMAL(65,30) NOT NULL,
     "cost_with_tax" DECIMAL(65,30) NOT NULL,
+    "real_cost_with_tax" DECIMAL(65,30),
     "transaction_date" TIMESTAMP(3) NOT NULL,
     "status" "TransactionStatus" DEFAULT 'Pending',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
