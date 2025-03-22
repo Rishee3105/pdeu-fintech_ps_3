@@ -251,6 +251,53 @@ app.get('/validate-transactions/:companyId', async (req, res) => {
 });
 
 
+// Define the POST route to fetch transactions by company and date range
+app.post('/companies/:companyId/transactions/date-range', async (req, res) => {
+  const { companyId } = req.params;
+  const { startDate, endDate } = req.body;
+
+  // Validate input
+  if (!startDate || !endDate) {
+    return res.status(400).json({ error: "Both startDate and endDate are required" });
+  }
+
+  try {
+    // Parse the dates
+    const parsedStartDate = new Date(startDate);
+    const parsedEndDate = new Date(endDate);
+
+    if (isNaN(parsedStartDate.getTime()) || isNaN(parsedEndDate.getTime())) {
+      return res.status(400).json({ error: "Invalid date format" });
+    }
+
+    // Fetch the company details
+    const company = await prisma.company.findUnique({
+      where: { id: parseInt(companyId) }
+    });
+
+    if (!company) {
+      return res.status(404).json({ error: "Company not found" });
+    }
+
+    // Query transactions for the specific company within the date range
+    const transactions = await prisma.transaction.findMany({
+      where: {
+        companyId: parseInt(companyId),
+        transactionDate: {
+          gte: parsedStartDate,
+          lte: parsedEndDate,
+        },
+      },
+    });
+
+    // Respond with the company information and transactions
+    res.json({ company, transactions });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'An error occurred while fetching transactions' });
+  }
+});
+
 
 // Start the server on a specified port
 const PORT = process.env.PORT || 3000;
