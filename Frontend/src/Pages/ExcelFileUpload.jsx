@@ -1,8 +1,7 @@
-// src/pages/ExcelFileUpload.js
-
 import React, { useState, useRef } from "react";
 import axios from "axios";
 import * as XLSX from "xlsx";
+import { useParams } from "react-router-dom";
 
 const ExcelFileUpload = () => {
   const { companyId } = useParams();
@@ -23,7 +22,7 @@ const ExcelFileUpload = () => {
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
-    setSelectedFile(file || null); // Clear if no file selected
+    setSelectedFile(file || null);
     if (file) {
       validateExcelFile(file);
     }
@@ -73,22 +72,14 @@ const ExcelFileUpload = () => {
       return;
     }
 
-    const formData = new FormData();
-    formData.append("file", selectedFile);
-
     try {
-      // Replace '/api/upload' with your actual backend endpoint
       await axios.post(
-        `http://localhost:3000/companies/${companyId}/transactions`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
+        `http://localhost:3000/companies/${companyId}/transactions/batch`,
+        transactions
       );
       setUploadStatus("File uploaded successfully!");
       setSelectedFile(null); // Clear selected file after upload
+      setTransactions([]); // Clear transactions after successful upload
     } catch (error) {
       setUploadStatus("Error uploading file.");
       console.error("Error uploading file:", error);
