@@ -42,7 +42,26 @@ app.post('/companies', async (req, res) => {
   }
 });
 
-// Define the POST route to upload an Excel file and parse transactions
+app.get('/companies/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const company = await prisma.company.findUnique({
+      where: { id: parseInt(id) },
+      include: { transactions: true },
+    });
+
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+
+    res.json(company);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'An error occurred while fetching the company data' });
+  }
+});
+
 app.post('/companies/:companyId/transactions', upload.single('file'), async (req, res) => {
   const { companyId } = req.params;
   const filePath = req.file.path;
@@ -54,20 +73,32 @@ app.post('/companies/:companyId/transactions', upload.single('file'), async (req
     const transactions = xlsx.utils.sheet_to_json(sheet);
 
     const transactionPromises = transactions.map(transaction => {
-      const { Source, Destination, Cost, Transaction: TransactionDate, TotalTransactionWithTax } = transaction;
+      const {
+        SourceCountry,
+        SourceState,
+        DestCountry,
+        DestState,
+        ActualCost,
+        CostWithTax,
+        TransactionDate
+      } = transaction;
 
-      const parsedCost = parseFloat(Cost);
-      const parsedTotalTransactionWithTax = parseFloat(TotalTransactionWithTax);
-      const parsedDate = new Date(TransactionDate);
+      // Validate and parse transaction date
+      let parsedDate = new Date(TransactionDate);
+      if (isNaN(parsedDate.getTime())) {
+        parsedDate = new Date(); // Default to current date if invalid
+      }
 
       return prisma.transaction.create({
         data: {
           companyId: parseInt(companyId, 10),
-          source: Source || "Unknown",
-          destination: Destination || "Unknown",
-          cost: isNaN(parsedCost) ? 0 : parsedCost,  // Ensure cost is valid
-          totalTransactionWithTax: isNaN(parsedTotalTransactionWithTax) ? 0 : parsedTotalTransactionWithTax, // Ensure valid value
-          transactionDate: parsedDate instanceof Date && !isNaN(parsedDate) ? parsedDate : new Date(), // Validate date
+          sourceCountry: SourceCountry || "Unknown",
+          sourceState: SourceState || "Unknown",
+          destCountry: DestCountry || "Unknown",
+          destState: DestState || "Unknown",
+          actualCost: parseFloat(ActualCost) || 0,
+          costWithTax: parseFloat(CostWithTax) || 0,
+          transactionDate: parsedDate,
         },
       });
     });
@@ -81,6 +112,7 @@ app.post('/companies/:companyId/transactions', upload.single('file'), async (req
   }
 });
 
+
 // Define the POST route to handle an array of transactions
 app.post('/companies/:companyId/transactions/batch', async (req, res) => {
   const { companyId } = req.params;
@@ -92,15 +124,26 @@ app.post('/companies/:companyId/transactions/batch', async (req, res) => {
 
   try {
     const transactionPromises = transactions.map(transaction => {
-      const { source, destination, cost, transactionDate, totalTransactionWithTax } = transaction;
+      const {
+        sourceCountry,
+        sourceState,
+        destCountry,
+        destState,
+        actualCost,
+        costWithTax,
+        transactionDate
+      } = transaction;
+
       return prisma.transaction.create({
         data: {
           companyId: parseInt(companyId, 10),
-          source,
-          destination,
-          cost: parseFloat(cost),
-          totalTransactionWithTax: parseFloat(totalTransactionWithTax),
-          transactionDate: new Date(transactionDate),
+          sourceCountry,
+          sourceState,
+          destCountry,
+          destState,
+          actualCost: parseFloat(actualCost) || 0,
+          costWithTax: parseFloat(costWithTax) || 0,
+          transactionDate: new Date(transactionDate) || new Date(),
         },
       });
     });
