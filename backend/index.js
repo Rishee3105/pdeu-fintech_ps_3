@@ -114,6 +114,23 @@ app.post('/companies/:companyId/transactions/batch', async (req, res) => {
   }
 });
 
+app.get('/companies', async (req, res) => {
+  try {
+    // Use Prisma Client to retrieve all companies
+    const companies = await prisma.company.findMany({
+      include: {
+        transactions: true, // Include related transactions if needed
+      },
+    });
+    
+    // Respond with the array of company objects
+    res.status(200).json(companies);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Start the server on a specified port
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
