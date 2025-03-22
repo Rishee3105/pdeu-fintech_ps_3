@@ -280,7 +280,6 @@ app.post("/companies/:companyId/transactions/validate-date-range", async (req, r
           sourceCountry,
           destState,
           destCountry,
-          // Removed productCategory as requested
         } = transaction;
 
         // Prepare the request payload for GST API
@@ -303,21 +302,27 @@ app.post("/companies/:companyId/transactions/validate-date-range", async (req, r
           const gstAmount = new Decimal(gstInfo.gstAmount);
           const actualCost = new Decimal(transaction.actualCost);
 
+          // Calculate the expected cost with tax
           const expectedCostWithTax = actualCost.plus(
             actualCost.times(gstAmount.dividedBy(100))
           );
+
           let newStatus = "Accepted";
 
           if (expectedCostWithTax.greaterThan(transaction.costWithTax)) {
             newStatus = "Rejected";
           }
 
+          // Update transaction with new status and real cost with tax
           await prisma.transaction.update({
             where: { id: transaction.id },
-            data: { status: newStatus },
+            data: {
+              status: newStatus,
+              realCostWithTax: expectedCostWithTax
+            },
           });
 
-          return { ...transaction, status: newStatus };
+          return { ...transaction, status: newStatus, realCostWithTax: expectedCostWithTax };
         } catch (error) {
           console.error("Error with GST API:", error.message);
           return {

@@ -34,18 +34,19 @@ model Company {
 }
 
 model Transaction {
-  id                    Int               @id @default(autoincrement())
-  company               Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  companyId             Int               @map("company_id")
-  sourceCountry         String            @map("source_country")
-  sourceState           String            @map("source_state")
-  destCountry           String            @map("dest_country")
-  destState             String            @map("dest_state")
-  actualCost            Decimal           @map("actual_cost")
-  costWithTax           Decimal           @map("cost_with_tax")
-  transactionDate       DateTime          @map("transaction_date")
-  status                TransactionStatus? @default(Pending) // Default value is Pending
-  createdAt             DateTime          @default(now()) @map("created_at")
+  id                Int                @id @default(autoincrement())
+  company           Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId         Int                @map("company_id")
+  sourceCountry     String             @map("source_country")
+  sourceState       String             @map("source_state")
+  destCountry       String             @map("dest_country")
+  destState         String             @map("dest_state")
+  actualCost        Decimal            @map("actual_cost")
+  costWithTax       Decimal            @map("cost_with_tax")
+  realCostWithTax   Decimal?           @map("real_cost_with_tax") // New column
+  transactionDate   DateTime           @map("transaction_date")
+  status            TransactionStatus? @default(Pending)          // Default value is Pending
+  createdAt         DateTime           @default(now())            @map("created_at")
 
   @@map("transactions")
 }
