@@ -44,7 +44,7 @@ model Transaction {
   actualCost            Decimal           @map("actual_cost")
   costWithTax           Decimal           @map("cost_with_tax")
   transactionDate       DateTime          @map("transaction_date")
-  status                TransactionStatus @default(Pending) // Default value is Pending
+  status                TransactionStatus? @default(Pending) // Default value is Pending
   createdAt             DateTime          @default(now()) @map("created_at")
 
   @@map("transactions")
