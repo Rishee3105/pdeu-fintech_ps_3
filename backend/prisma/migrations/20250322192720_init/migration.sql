@@ -1,11 +1,5 @@
-/*
-  Warnings:
-
-  - You are about to drop the `customers` table. If the table is not empty, all the data it contains will be lost.
-
-*/
--- DropTable
-DROP TABLE "customers";
+-- CreateEnum
+CREATE TYPE "TransactionStatus" AS ENUM ('Pending', 'Accepted', 'Rejected');
 
 -- CreateTable
 CREATE TABLE "companies" (
@@ -24,10 +18,14 @@ CREATE TABLE "companies" (
 CREATE TABLE "transactions" (
     "id" SERIAL NOT NULL,
     "company_id" INTEGER NOT NULL,
-    "source" TEXT NOT NULL,
-    "destination" TEXT NOT NULL,
-    "cost" DECIMAL(65,30) NOT NULL,
+    "source_country" TEXT NOT NULL,
+    "source_state" TEXT NOT NULL,
+    "dest_country" TEXT NOT NULL,
+    "dest_state" TEXT NOT NULL,
+    "actual_cost" DECIMAL(65,30) NOT NULL,
+    "cost_with_tax" DECIMAL(65,30) NOT NULL,
     "transaction_date" TIMESTAMP(3) NOT NULL,
+    "status" "TransactionStatus" DEFAULT 'Pending',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "transactions_pkey" PRIMARY KEY ("id")
